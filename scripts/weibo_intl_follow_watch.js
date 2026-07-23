@@ -177,33 +177,33 @@ function parseBlacklist(raw) {
 }
 
 function buildBaseCardlistUrl(profileUrl) {
-  try {
-    const src = new URL(profileUrl);
-    const dst = new URL("https://api.weibo.cn/2/cardlist");
-    const allowed = ["aid", "c", "from", "gsid", "lang", "s", "ua", "v_p"];
-    for (const key of allowed) {
-      if (src.searchParams.has(key)) dst.searchParams.set(key, src.searchParams.get(key));
-    }
-    if (!dst.searchParams.has("v_p")) dst.searchParams.set("v_p", "59");
-    dst.searchParams.set("count", "20");
-    return dst;
-  } catch (_) {
-    return null;
+  const query = parseQuery(profileUrl);
+  const allowed = ["aid", "c", "from", "gsid", "lang", "s", "ua", "v_p"];
+  const params = {};
+  for (const key of allowed) {
+    if (Object.prototype.hasOwnProperty.call(query, key)) params[key] = query[key];
   }
+  if (!params.v_p) params.v_p = "59";
+  params.count = "20";
+  return { origin: "https://api.weibo.cn/2/cardlist", params };
 }
 
 function fetchCardlist(base, container, page) {
-  const url = new URL(base.toString());
-  url.searchParams.set("containerid", container);
-  url.searchParams.set("page", String(page));
-  if (page > 1) url.searchParams.set("since_id", "(null)");
+  const params = Object.assign({}, base.params, {
+    containerid: container,
+    page: String(page),
+  });
+  if (page > 1) params.since_id = "(null)";
+  const url = base.origin + "?" + Object.keys(params)
+    .map((key) => encodeURIComponent(key) + "=" + encodeURIComponent(params[key]))
+    .join("&");
   const headers = {};
   const inputHeaders = ($request && $request.headers) || {};
   for (const key of Object.keys(inputHeaders)) {
     if (/^(user-agent|x-sessionid|accept|accept-language)$/i.test(key)) headers[key] = inputHeaders[key];
   }
   return new Promise((resolve) => {
-    $httpClient.get({ url: url.toString(), headers, timeout: config.request_timeout }, (error, response, body) => {
+    $httpClient.get({ url, headers, timeout: config.request_timeout }, (error, response, body) => {
       const status = Number(response && (response.status || response.statusCode));
       if (error || status < 200 || status >= 300) return resolve({ ok: false, users: [] });
       try {
@@ -258,6 +258,22 @@ function applyResult(profile, result) {
   user.description = original ? original + "\n" + label : label;
 }
 
+function parseQuery(url) {
+  const out = {};
+  const q = String(url || "").split("?")[1];
+  if (!q) return out;
+  for (const pair of q.split("#")[0].split("&")) {
+    if (!pair) continue;
+    const i = pair.indexOf("=");
+    const rawKey = i < 0 ? pair : pair.slice(0, i);
+    const rawValue = i < 0 ? "" : pair.slice(i + 1);
+    try {
+      const key = decodeURIComponent(rawKey.replace(/\+/g, " "));
+      out[key] = decodeURIComponent(rawValue.replace(/\+/g, " "));
+    } catch (_) {}
+  }
+  return out;
+}
 function responseBody() {
   if ($response.body == null) return "";
   return typeof $response.body === "string" ? $response.body : JSON.stringify($response.body);

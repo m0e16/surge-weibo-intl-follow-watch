@@ -45,8 +45,6 @@ async function runScenario({
   };
 
   const sandbox = {
-    URL,
-    URLSearchParams,
     Set,
     Map,
     Promise,
