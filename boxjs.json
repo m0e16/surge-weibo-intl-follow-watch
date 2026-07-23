@@ -1,0 +1,38 @@
+[
+  {
+    "id": "weibo.followwatch",
+    "name": "微博关注黑名单检测",
+    "desc": "管理微博国际版关注黑名单。按 UID 精确匹配；每行填写 UID,昵称。",
+    "author": "m0e16",
+    "repo": "https://github.com/m0e16/surge-weibo-intl-follow-watch",
+    "icons": [
+      "https://raw.githubusercontent.com/Orz-3/mini/master/Color/Weibo.png",
+      "https://raw.githubusercontent.com/Orz-3/mini/master/Alpha/Weibo.png"
+    ],
+    "keys": [
+      {
+        "id": "weibo.followwatch.blacklist",
+        "name": "黑名单",
+        "desc": "每行一位博主：UID,昵称。昵称可省略；匹配只使用 UID。示例：1234567890,示例博主",
+        "type": "textarea",
+        "val": ""
+      }
+    ],
+    "settings": [
+      {
+        "id": "weibo.followwatch.normalize",
+        "name": "校验并规范化名单",
+        "desc": "去重并忽略无效 UID",
+        "script": "https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/scripts/boxjs_sync.js",
+        "argument": "normalize"
+      },
+      {
+        "id": "weibo.followwatch.clear-cache",
+        "name": "清理检测缓存",
+        "desc": "修改名单后如需立即重新检测，可运行此操作",
+        "script": "https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/scripts/boxjs_sync.js",
+        "argument": "clear-cache"
+      }
+    ]
+  }
+]
