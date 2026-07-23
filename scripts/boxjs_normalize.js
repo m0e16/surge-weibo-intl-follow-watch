@@ -15,11 +15,10 @@ function normalize(value) {
   for (const line of lines) {
     const parts = line.split(/[,，\t|]/);
     const uid = String(parts.shift() || "").trim();
-    const name = parts.join(" ").trim();
     if (!/^\d{5,20}$/.test(uid)) { invalid++; continue; }
     if (seen.has(uid)) { duplicate++; continue; }
     seen.add(uid);
-    output.push(uid + (name ? "," + name : ""));
+    output.push(uid);
   }
   return { text: output.join("\n"), valid: output.length, invalid, duplicate };
 }

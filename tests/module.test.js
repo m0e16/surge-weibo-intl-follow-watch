@@ -16,6 +16,7 @@ test("Surge 模块多参数使用逗号分隔的名称冒号默认值语法", ()
   const expected = ["mode", "max_pages", "cache_hours", "min_interval", "jitter_ms", "show_names", "max_names", "show_zero", "debug"];
   assert.deepEqual(params.map(([key]) => key), expected);
   assert.equal(Object.fromEntries(params).mode, "smart");
+  assert.equal(Object.fromEntries(params).max_pages, "5");
   assert.doesNotMatch(declaration, /&/);
 });
 

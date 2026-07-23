@@ -2,11 +2,11 @@
 #!desc=进入微博国际版用户主页时，低频检查其军事/社会时事分类；无分类时按配置回退普通关注列表，并在简介显示命中结果。
 #!author=m0e16
 #!category=🔧 Tools
-#!arguments=mode:smart,max_pages:2,cache_hours:24,min_interval:45,jitter_ms:900,show_names:true,max_names:3,show_zero:false,debug:false
-#!arguments-desc=mode：category 仅军事/时事；smart 无分类时回退普通关注；full 总是追加普通关注。max_pages：普通关注最多页数（1-10，默认2）。cache_hours：结果缓存小时。min_interval：两次新检测最小间隔秒。jitter_ms：每次附加请求前随机延迟基数。show_names：显示命中昵称。max_names：最多显示几个昵称。show_zero：显示零命中。debug：写入日志。
+#!arguments=mode:smart,max_pages:5,cache_hours:24,min_interval:45,jitter_ms:900,show_names:true,max_names:3,show_zero:false,debug:false
+#!arguments-desc=mode：category 仅军事/时事；smart 分类未覆盖全部黑名单时回退普通关注；full 总是追加普通关注。max_pages：普通关注最多页数（1-10，默认5）。cache_hours：结果缓存小时。min_interval：两次新检测最小间隔秒。jitter_ms：每次附加请求前随机延迟基数。show_names：显示接口返回的当前昵称。max_names：最多显示几个昵称。show_zero：显示零命中。debug：写入日志。
 
 # 安装：https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/Weibo_intl_follow_watch.sgmodule
-# BoxJS 数据键：weibo.followwatch.blacklist；每行 UID,昵称
+# BoxJS 数据键：weibo.followwatch.blacklist；每行一个 UID
 
 [Script]
 微博关注黑名单检测 = type=http-response, pattern=^https:\/\/api\.weibo\.cn\/2\/profile(?:\?|$), script-path=https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/scripts/weibo_intl_follow_watch.js, requires-body=true, max-size=2097152, timeout=15, script-update-interval=86400, argument=mode={{{mode}}}&max_pages={{{max_pages}}}&cache_hours={{{cache_hours}}}&min_interval={{{min_interval}}}&jitter_ms={{{jitter_ms}}}&show_names={{{show_names}}}&max_names={{{max_names}}}&show_zero={{{show_zero}}}&debug={{{debug}}}

@@ -101,12 +101,13 @@ const all = "231051_-_followers_-_10001";
 
 test("分类存在时顺序扫描军事和社会时事并按 UID 命中", async () => {
   const result = await runScenario({
+    blacklist: "20001",
     routes: {
       [`${military}|1`]: { body: JSON.stringify(cardlist([["20001", "黑名单甲"]], 1, "他喜欢的军事博主")) },
       [`${society}|1`]: { body: JSON.stringify(cardlist([["30001", "普通用户"]], 1, "他喜欢的社会时事博主")) },
     },
   });
-  assert.match(result.body.userInfo.description, /⚠️ 黑名单命中1：黑名单甲/);
+  assert.match(result.body.userInfo.description, /（🆔UID：10001）\n⚠️ 黑名单命中1：黑名单甲/);
   assert.equal(result.requests.length, 2);
   assert.deepEqual(result.requests.map((x) => new URL(x.url).searchParams.get("containerid")).sort(), [military, society].sort());
 });
@@ -122,6 +123,39 @@ test("没有分类时 smart 模式回退扫描普通关注列表", async () => {
   });
   assert.match(result.body.userInfo.description, /⚠️ 黑名单命中1：黑名单乙/);
   assert.equal(result.requests.length, 4);
+});
+
+test("有分类但分类未命中时 smart 模式仍扫描普通关注列表", async () => {
+  const result = await runScenario({
+    blacklist: "20002",
+    routes: {
+      [`${military}|1`]: { body: JSON.stringify(cardlist([["30001", "军事普通用户"]], 1)) },
+      [`${society}|1`]: { body: JSON.stringify(cardlist([["30002", "时事普通用户"]], 1)) },
+      [`${all}|1`]: { body: JSON.stringify(cardlist([["20002", "黑名单乙当前昵称"]], 40)) },
+    },
+  });
+  assert.match(result.body.userInfo.description, /黑名单命中1：黑名单乙当前昵称/);
+  assert.equal(result.requests.length, 3);
+});
+
+test("未命中且关闭 show_zero 时仍在简介显示主页 UID", async () => {
+  const result = await runScenario({
+    blacklist: "20001",
+    argument: "mode=category&max_pages=2&cache_hours=12&debug=false&jitter_ms=0&show_zero=false",
+  });
+  assert.equal(result.body.userInfo.description, "原简介\n（🆔UID：10001）");
+});
+
+test("命中展示关注接口返回的当前昵称而不是 BoxJS 旧昵称", async () => {
+  const result = await runScenario({
+    blacklist: "20001,旧昵称",
+    routes: {
+      [`${military}|1`]: { body: JSON.stringify(cardlist([["20001", "当前昵称"]])) },
+      [`${society}|1`]: { body: JSON.stringify(cardlist([])) },
+    },
+  });
+  assert.match(result.body.userInfo.description, /黑名单命中1：当前昵称/);
+  assert.doesNotMatch(result.body.userInfo.description, /旧昵称/);
 });
 
 test("安全策略限制请求数量并使用顺序分页而不是突发并发", async () => {
@@ -143,7 +177,7 @@ test("缓存命中时不发网络请求且不重复附加标记", async () => {
   const cacheKey = "weibo.followwatch.cache.10001";
   const cached = JSON.stringify({
     expires_at: Date.now() + 3600000,
-    blacklist_version: "20001,黑名单甲\n20002,黑名单乙",
+    blacklist_version: "20001\n20002",
     count: 1,
     names: ["黑名单甲"],
     scope: "分类",
@@ -160,7 +194,7 @@ test("缓存命中时不发网络请求且不重复附加标记", async () => {
 test("请求失败时保持原简介，不伪造零命中", async () => {
   const error = { status: 500, body: "{}" };
   const result = await runScenario({ routes: { [`${military}|1`]: error, [`${society}|1`]: error } });
-  assert.equal(result.body.userInfo.description, "原简介");
+  assert.equal(result.body.userInfo.description, "原简介\n（🆔UID：10001）");
 });
 
 test("日志和持久化缓存不包含认证参数", async () => {

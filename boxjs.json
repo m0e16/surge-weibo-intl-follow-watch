@@ -8,7 +8,7 @@
     {
       "id": "weibo.followwatch",
       "name": "微博关注黑名单检测",
-      "desc_html": "<p>进入微博国际版用户主页时，按 UID 检测其可见关注是否命中黑名单。</p><p>每行填写：<code>UID,昵称</code>。昵称可省略，匹配仅使用 UID。</p>",
+      "desc_html": "<p>进入微博国际版用户主页时，按 UID 检测其可见关注是否命中黑名单。</p><p>每行只填写一个微博 UID；命中时自动显示接口返回的当前昵称。</p>",
       "keys": [
         "weibo.followwatch.blacklist"
       ],
@@ -18,10 +18,10 @@
           "name": "黑名单",
           "val": "",
           "type": "textarea",
-          "placeholder": "1234567890,示例博主\n2345678901,另一位博主",
+          "placeholder": "1234567890\n2345678901",
           "autoGrow": true,
           "rows": 12,
-          "desc": "每行一位博主：UID,昵称。昵称可省略；匹配只使用 UID。"
+          "desc": "每行一个 UID；其他内容将被忽略。"
         }
       ],
       "author": "@m0e16",

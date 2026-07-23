@@ -1,7 +1,7 @@
 /*
  * 微博国际版 / 轻享版：关注黑名单检测
  * 拦截 /2/profile，低频查询目标用户的军事、社会时事分类；没有分类时按配置回退普通关注列表。
- * 黑名单由 BoxJS 写入 weibo.followwatch.blacklist，一行格式：UID,显示名称
+ * 黑名单由 BoxJS 写入 weibo.followwatch.blacklist，每行一个 UID；命中昵称取接口当前值。
  */
 
 const STORE = {
@@ -9,11 +9,12 @@ const STORE = {
   lastScanAt: "weibo.followwatch.last_scan_at",
   cachePrefix: "weibo.followwatch.cache.",
 };
-const MARKER_RE = /\n?⚠️ 黑名单命中\d+(?:：[^\n]*)?(?: \[[^\n]*\])?/g;
+const RESULT_MARKER_RE = /\n?⚠️ 黑名单(?:命中\d+(?:：[^\n]*)?|未命中)(?: \[[^\n]*\])?/g;
+const UID_MARKER_RE = /\n?（?🆔UID：\d+）?/g;
 const CATEGORY_CODES = ["007", "060"]; // 军事、社会时事
 const DEFAULTS = {
   mode: "smart", // category | smart | full
-  max_pages: 2,
+  max_pages: 5,
   cache_hours: 24,
   min_interval: 45,
   jitter_ms: 900,
@@ -42,11 +43,12 @@ async function main() {
   const user = profile && profile.userInfo;
   const uid = String((user && (user.idstr || user.id)) || "");
   if (!uid || !user) return $done({});
+  applyUid(profile, uid);
 
   const parsedBlacklist = parseBlacklist($persistentStore.read(STORE.blacklist) || "");
   if (!parsedBlacklist.items.length) {
     log("blacklist is empty");
-    return $done({});
+    return $done({ body: JSON.stringify(profile) });
   }
 
   const cacheKey = STORE.cachePrefix + uid;
@@ -64,12 +66,12 @@ async function main() {
   const lastScanAt = Number($persistentStore.read(STORE.lastScanAt) || 0);
   if (config.min_interval > 0 && Date.now() - lastScanAt < config.min_interval * 1000) {
     log("global cooldown, skip uid=" + uid);
-    return $done({});
+    return $done({ body: JSON.stringify(profile) });
   }
   $persistentStore.write(String(Date.now()), STORE.lastScanAt);
 
   const baseUrl = buildBaseCardlistUrl(requestUrl);
-  if (!baseUrl) return $done({});
+  if (!baseUrl) return $done({ body: JSON.stringify(profile) });
 
   const found = new Map();
   let successfulRequests = 0;
@@ -88,7 +90,7 @@ async function main() {
 
   const shouldFallback =
     config.mode === "full" ||
-    (config.mode === "smart" && categoryUsers === 0);
+    (config.mode === "smart" && found.size < parsedBlacklist.items.length);
 
   if (shouldFallback) {
     const container = `231051_-_followers_-_${uid}`;
@@ -104,7 +106,7 @@ async function main() {
   }
 
   // 两个分类都失败时不写“零命中”，避免网络异常导致误判。
-  if (!successfulRequests) return $done({});
+  if (!successfulRequests) return $done({ body: JSON.stringify(profile) });
 
   const names = Array.from(found.values()).map((x) => x.name);
   const result = {
@@ -158,21 +160,18 @@ function parseBlacklist(raw) {
   const byUid = new Map();
   for (const entry of source) {
     let uid = "";
-    let name = "";
     if (typeof entry === "string") {
       const parts = entry.split(/[,，\t|]/);
       uid = String(parts.shift() || "").trim();
-      name = parts.join(" ").trim();
     } else if (entry && typeof entry === "object") {
       uid = String(entry.uid || entry.id || entry.idstr || "").trim();
-      name = String(entry.name || entry.screen_name || "").trim();
     }
     if (!/^\d{5,20}$/.test(uid)) continue;
-    byUid.set(uid, { uid, name: name || uid });
+    byUid.set(uid, { uid });
   }
   const items = Array.from(byUid.values()).sort((a, b) => a.uid.localeCompare(b.uid));
   // 版本值不含认证信息；兼容旧缓存测试时保留规范化文本形式。
-  const version = items.map((x) => `${x.uid},${x.name}`).join("\n");
+  const version = items.map((x) => x.uid).join("\n");
   return { items, byUid, version };
 }
 
@@ -239,13 +238,13 @@ function extractUsers(obj) {
 function collectMatches(users, blacklist, found) {
   for (const user of users) {
     const hit = blacklist.get(user.uid);
-    if (hit) found.set(user.uid, { uid: user.uid, name: hit.name || user.name || user.uid });
+    if (hit) found.set(user.uid, { uid: user.uid, name: user.name || user.uid });
   }
 }
 
 function applyResult(profile, result) {
   const user = profile.userInfo;
-  const original = String(user.description || "").replace(MARKER_RE, "").trimEnd();
+  const original = String(user.description || "").replace(RESULT_MARKER_RE, "").trimEnd();
   if (!result.count && !config.show_zero) {
     user.description = original;
     return;
@@ -256,6 +255,16 @@ function applyResult(profile, result) {
     if (names.length) label += "：" + names.join("、") + ((result.names || []).length > names.length ? "等" : "");
   }
   user.description = original ? original + "\n" + label : label;
+}
+
+function applyUid(profile, uid) {
+  const user = profile.userInfo;
+  const original = String(user.description || "")
+    .replace(RESULT_MARKER_RE, "")
+    .replace(UID_MARKER_RE, "")
+    .trimEnd();
+  const marker = "（🆔UID：" + uid + "）";
+  user.description = original ? original + "\n" + marker : marker;
 }
 
 function parseQuery(url) {

@@ -23,6 +23,8 @@ test("黑名单 textarea 位于 app.settings 而不是 keys", () => {
   assert.equal(setting.type, "textarea");
   assert.equal(setting.autoGrow, true);
   assert.ok(Number.isInteger(setting.rows));
+  assert.match(setting.desc, /每行一个 UID/);
+  assert.doesNotMatch(setting.desc, /昵称/);
 });
 
 test("可运行脚本使用 BoxJS scripts schema", () => {
