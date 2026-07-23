@@ -5,21 +5,25 @@ const path = require("node:path");
 
 const moduleText = fs.readFileSync(path.join(__dirname, "..", "Weibo_intl_follow_watch.sgmodule"), "utf8");
 
-test("Surge 模块参数使用官方 query-string 语法", () => {
+test("Surge 模块多参数使用逗号分隔的名称冒号默认值语法", () => {
   const line = moduleText.split(/\r?\n/).find((x) => x.startsWith("#!arguments="));
   assert.ok(line);
-  const query = line.slice("#!arguments=".length);
-  const params = new URLSearchParams(query);
+  const declaration = line.slice("#!arguments=".length);
+  const params = declaration.split(",").map((item) => {
+    const i = item.indexOf(":");
+    return [item.slice(0, i), item.slice(i + 1)];
+  });
   const expected = ["mode", "max_pages", "cache_hours", "min_interval", "jitter_ms", "show_names", "max_names", "show_zero", "debug"];
-  assert.deepEqual([...params.keys()], expected);
-  assert.equal(params.get("mode"), "smart");
+  assert.deepEqual(params.map(([key]) => key), expected);
+  assert.equal(Object.fromEntries(params).mode, "smart");
+  assert.doesNotMatch(declaration, /&/);
 });
 
-test("Surge 模块参数通过百分号占位符传入脚本", () => {
+test("Surge 模块参数通过三花括号占位符传入脚本", () => {
   const scriptLine = moduleText.split(/\r?\n/).find((x) => x.startsWith("微博关注黑名单检测 ="));
   assert.ok(scriptLine);
   for (const key of ["mode", "max_pages", "cache_hours", "min_interval", "jitter_ms", "show_names", "max_names", "show_zero", "debug"]) {
-    assert.match(scriptLine, new RegExp(`${key}=%${key}%`));
+    assert.ok(scriptLine.includes(`${key}={{{${key}}}}`));
   }
-  assert.doesNotMatch(scriptLine, /\{\{\{/);
+  assert.doesNotMatch(scriptLine, /%mode%/);
 });
