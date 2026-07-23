@@ -10,8 +10,8 @@
 
 [Script]
 微博关注黑名单检测 = type=http-response, pattern=^https:\/\/api\.weibo\.cn\/2\/profile(?:\?|$), script-path=https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/scripts/weibo_intl_follow_watch.js, requires-body=true, max-size=2097152, timeout=15, script-update-interval=86400, argument={{{mode}}}&max_pages={{{max_pages}}}&cache_hours={{{cache_hours}}}&min_interval={{{min_interval}}}&jitter_ms={{{jitter_ms}}}&show_names={{{show_names}}}&max_names={{{max_names}}}&show_zero={{{show_zero}}}&debug={{{debug}}}
-微博关注黑名单-校验名单 = type=generic, script-path=https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/scripts/boxjs_sync.js, timeout=10, script-update-interval=86400, argument=normalize
-微博关注黑名单-清理缓存 = type=generic, script-path=https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/scripts/boxjs_sync.js, timeout=10, script-update-interval=86400, argument=clear-cache
+微博关注黑名单-校验名单 = type=generic, script-path=https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/scripts/boxjs_normalize.js, timeout=10, script-update-interval=86400
+微博关注黑名单-清理缓存 = type=generic, script-path=https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/scripts/boxjs_clear_cache.js, timeout=10, script-update-interval=86400
 
 [MITM]
 hostname = %APPEND% api.weibo.cn

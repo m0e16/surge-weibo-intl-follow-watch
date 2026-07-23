@@ -4,6 +4,6 @@
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "check": "node --check scripts/weibo_intl_follow_watch.js && node --check scripts/boxjs_sync.js"
+    "check": "node --check scripts/weibo_intl_follow_watch.js && node --check scripts/boxjs_normalize.js && node --check scripts/boxjs_clear_cache.js"
   }
 }
