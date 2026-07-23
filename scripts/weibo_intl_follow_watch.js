@@ -10,7 +10,7 @@ const STORE = {
   cachePrefix: "weibo.followwatch.cache.",
 };
 const RESULT_MARKER_RE = /\n?⚠️ 黑名单(?:命中\d+(?:：[^\n]*)?|未命中)(?: \[[^\n]*\])?/g;
-const UID_MARKER_RE = /\n?（?🆔UID：\d+）?/g;
+const UID_MARKER_RE = /\n?(?:（🆔UID：\d+）|🆔 UID:\d+)/g;
 const CATEGORY_CODES = ["007", "060"]; // 军事、社会时事
 const DEFAULTS = {
   mode: "smart", // category | smart | full
@@ -45,18 +45,27 @@ async function main() {
   if (!uid || !user) return $done({});
   applyUid(profile, uid);
 
+  const profileState = getProfileState(user);
+  const cacheKey = STORE.cachePrefix + uid;
+  if (profileState !== "checkable") {
+    // 不缓存跳过状态；解除拉黑/取消关注后下一次进入会自然重新检测。
+    $persistentStore.write("", cacheKey);
+    log(`skip uid=${uid} state=${profileState}`);
+    return $done({ body: JSON.stringify(profile) });
+  }
+
   const parsedBlacklist = parseBlacklist($persistentStore.read(STORE.blacklist) || "");
   if (!parsedBlacklist.items.length) {
     log("blacklist is empty");
     return $done({ body: JSON.stringify(profile) });
   }
 
-  const cacheKey = STORE.cachePrefix + uid;
   const cached = readJSON(cacheKey);
   if (
     cached &&
     Number(cached.expires_at) > Date.now() &&
-    cached.blacklist_version === parsedBlacklist.version
+    cached.blacklist_version === parsedBlacklist.version &&
+    (!cached.profile_state || cached.profile_state === profileState)
   ) {
     applyResult(profile, cached);
     return $done({ body: JSON.stringify(profile) });
@@ -112,6 +121,7 @@ async function main() {
   const result = {
     expires_at: Date.now() + config.cache_hours * 3600 * 1000,
     blacklist_version: parsedBlacklist.version,
+    profile_state: profileState,
     count: found.size,
     names,
     scope: shouldFallback ? "可见关注" : "军事/时事分类",
@@ -263,8 +273,15 @@ function applyUid(profile, uid) {
     .replace(RESULT_MARKER_RE, "")
     .replace(UID_MARKER_RE, "")
     .trimEnd();
-  const marker = "（🆔UID：" + uid + "）";
+  const marker = "🆔 UID:" + uid;
   user.description = original ? original + "\n" + marker : marker;
+}
+
+function getProfileState(user) {
+  // HAR 实测：block=1 为已拉黑，block=2 为未拉黑；following=true 为我已关注。
+  if (Number(user.block) === 1) return "blocked";
+  if (user.following === true || Number(user.following_state) === 1) return "following";
+  return "checkable";
 }
 
 function parseQuery(url) {

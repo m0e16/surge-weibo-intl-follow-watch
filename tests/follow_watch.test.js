@@ -18,6 +18,13 @@ function profile(uid = "10001", description = "原简介", friendsCount = 40) {
   };
 }
 
+function profileWithState({ uid = "10001", description = "原简介", following = false, block = 2 } = {}) {
+  const body = profile(uid, description);
+  body.userInfo.following = following;
+  body.userInfo.block = block;
+  return body;
+}
+
 function cardlist(users, total = users.length, title = "他的好友") {
   return {
     cardlistInfo: { title_top: title, total },
@@ -107,7 +114,7 @@ test("分类存在时顺序扫描军事和社会时事并按 UID 命中", async 
       [`${society}|1`]: { body: JSON.stringify(cardlist([["30001", "普通用户"]], 1, "他喜欢的社会时事博主")) },
     },
   });
-  assert.match(result.body.userInfo.description, /（🆔UID：10001）\n⚠️ 黑名单命中1：黑名单甲/);
+  assert.match(result.body.userInfo.description, /🆔 UID:10001\n⚠️ 黑名单命中1：黑名单甲/);
   assert.equal(result.requests.length, 2);
   assert.deepEqual(result.requests.map((x) => new URL(x.url).searchParams.get("containerid")).sort(), [military, society].sort());
 });
@@ -143,7 +150,41 @@ test("未命中且关闭 show_zero 时仍在简介显示主页 UID", async () =>
     blacklist: "20001",
     argument: "mode=category&max_pages=2&cache_hours=12&debug=false&jitter_ms=0&show_zero=false",
   });
-  assert.equal(result.body.userInfo.description, "原简介\n（🆔UID：10001）");
+  assert.equal(result.body.userInfo.description, "原简介\n🆔 UID:10001");
+});
+
+test("已拉黑用户只显示 UID 且不发检测请求", async () => {
+  const result = await runScenario({ profileBody: profileWithState({ block: 1 }) });
+  assert.equal(result.requests.length, 0);
+  assert.equal(result.body.userInfo.description, "原简介\n🆔 UID:10001");
+});
+
+test("已关注用户只显示 UID 且不发检测请求", async () => {
+  const result = await runScenario({ profileBody: profileWithState({ following: true, block: 2 }) });
+  assert.equal(result.requests.length, 0);
+  assert.equal(result.body.userInfo.description, "原简介\n🆔 UID:10001");
+});
+
+test("解除拉黑后的主页不使用拉黑状态缓存并重新检测", async () => {
+  const cacheKey = "weibo.followwatch.cache.10001";
+  const result = await runScenario({
+    profileBody: profileWithState({ following: false, block: 2 }),
+    cache: {
+      [cacheKey]: JSON.stringify({
+        expires_at: Date.now() + 3600000,
+        blacklist_version: "20001\n20002",
+        profile_state: "blocked",
+        count: 0,
+        names: [],
+      }),
+    },
+    routes: {
+      [`${military}|1`]: { body: JSON.stringify(cardlist([["20001", "当前昵称"]])) },
+      [`${society}|1`]: { body: JSON.stringify(cardlist([])) },
+    },
+  });
+  assert.ok(result.requests.length >= 2);
+  assert.match(result.body.userInfo.description, /黑名单命中1：当前昵称/);
 });
 
 test("命中展示关注接口返回的当前昵称而不是 BoxJS 旧昵称", async () => {
@@ -194,7 +235,7 @@ test("缓存命中时不发网络请求且不重复附加标记", async () => {
 test("请求失败时保持原简介，不伪造零命中", async () => {
   const error = { status: 500, body: "{}" };
   const result = await runScenario({ routes: { [`${military}|1`]: error, [`${society}|1`]: error } });
-  assert.equal(result.body.userInfo.description, "原简介\n（🆔UID：10001）");
+  assert.equal(result.body.userInfo.description, "原简介\n🆔 UID:10001");
 });
 
 test("日志和持久化缓存不包含认证参数", async () => {

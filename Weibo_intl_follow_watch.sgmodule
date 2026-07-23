@@ -1,5 +1,5 @@
 #!name=微博关注黑名单检测
-#!desc=进入微博国际版用户主页时，低频检查其军事/社会时事分类；无分类时按配置回退普通关注列表，并在简介显示命中结果。
+#!desc=在微博国际版用户简介显示 UID；对未拉黑且未关注的用户低频检测关注黑名单。
 #!author=m0e16
 #!category=🔧 Tools
 #!arguments=mode:smart,max_pages:5,cache_hours:24,min_interval:45,jitter_ms:900,show_names:true,max_names:3,show_zero:false,debug:false
