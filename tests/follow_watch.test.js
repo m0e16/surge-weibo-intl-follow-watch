@@ -162,10 +162,10 @@ test("开启 show_zero 时 UID 与未命中状态显示在同一行", async () =
   assert.equal(result.body.userInfo.description, "原简介\n🆔 UID:10001 · ⚠️ 未命中");
 });
 
-test("已拉黑用户只显示 UID 且不发检测请求", async () => {
+test("已拉黑用户完全不改简介且不发检测请求", async () => {
   const result = await runScenario({ profileBody: profileWithState({ block: 1 }) });
   assert.equal(result.requests.length, 0);
-  assert.equal(result.body.userInfo.description, "原简介\n🆔 UID:10001");
+  assert.equal(result.body.userInfo.description, "原简介");
 });
 
 test("已关注用户只显示 UID 且不发检测请求", async () => {

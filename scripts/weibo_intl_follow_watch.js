@@ -43,12 +43,19 @@ async function main() {
   const user = profile && profile.userInfo;
   const uid = String((user && (user.idstr || user.id)) || "");
   if (!uid || !user) return $done({});
-  applyUid(profile, uid);
 
   const profileState = getProfileState(user);
   const cacheKey = STORE.cachePrefix + uid;
-  if (profileState !== "checkable") {
-    // 不缓存跳过状态；解除拉黑/取消关注后下一次进入会自然重新检测。
+  if (profileState === "blocked") {
+    // 不缓存跳过状态；解除拉黑后下一次进入会自然重新检测。
+    $persistentStore.write("", cacheKey);
+    log(`skip uid=${uid} state=${profileState}`);
+    return $done({ body: JSON.stringify(profile) });
+  }
+
+  applyUid(profile, uid);
+  if (profileState === "following") {
+    // 不缓存跳过状态；取消关注后下一次进入会自然重新检测。
     $persistentStore.write("", cacheKey);
     log(`skip uid=${uid} state=${profileState}`);
     return $done({ body: JSON.stringify(profile) });
@@ -84,7 +91,6 @@ async function main() {
 
   const found = new Map();
   let successfulRequests = 0;
-  let categoryUsers = 0;
 
   // 故意顺序请求并加入抖动，不进行突发并发。
   for (const code of CATEGORY_CODES) {
@@ -93,7 +99,6 @@ async function main() {
     const page = await fetchCardlist(baseUrl, container, 1);
     if (!page.ok) continue;
     successfulRequests++;
-    categoryUsers += page.users.length;
     collectMatches(page.users, parsedBlacklist.byUid, found);
   }
 
