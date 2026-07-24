@@ -10,7 +10,7 @@ const STORE = {
   cachePrefix: "weibo.followwatch.cache.",
 };
 const RESULT_MARKER_RE = /\n?⚠️ 黑名单(?:命中\d+(?:：[^\n]*)?|未命中)(?: \[[^\n]*\])?/g;
-const UID_MARKER_RE = /\n?(?:（🆔UID：\d+）|🆔 UID:\d+(?: · ⚠️ (?:命中\d+(?:：[^\n]*)?|未命中))?)/g;
+const UID_MARKER_RE = /\n?(?:（🆔UID：\d+）|🆔 UID:\d+(?: · (?:⚠️ (?:命中\d+(?:：[^\n]*)?|未命中)|⏳ 待检测))?)/g;
 const CATEGORY_CODES = ["007", "060"]; // 军事、社会时事
 const DEFAULTS = {
   mode: "smart", // category | smart | full
@@ -82,6 +82,7 @@ async function main() {
   const lastScanAt = Number($persistentStore.read(STORE.lastScanAt) || 0);
   if (config.min_interval > 0 && Date.now() - lastScanAt < config.min_interval * 1000) {
     log("global cooldown, skip uid=" + uid);
+    applyPending(profile);
     return $done({ body: JSON.stringify(profile) });
   }
   $persistentStore.write(String(Date.now()), STORE.lastScanAt);
@@ -284,6 +285,13 @@ function applyUid(profile, uid) {
     .trimEnd();
   const marker = "🆔 UID:" + uid;
   user.description = appendLine(original, marker);
+}
+
+function applyPending(profile) {
+  const user = profile.userInfo;
+  const text = String(user.description || "").replace(UID_MARKER_RE, "").trimEnd();
+  const uid = String(user.idstr || user.id || "");
+  user.description = appendLine(text, "🆔 UID:" + uid + " · ⏳ 待检测");
 }
 
 function appendLine(text, line) { return text ? text + "\n" + line : line; }

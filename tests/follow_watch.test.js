@@ -241,6 +241,15 @@ test("缓存命中时不发网络请求且不重复附加标记", async () => {
   assert.match(result.body.userInfo.description, /命中1/);
 });
 
+test("全局冷却期间在 UID 同行显示待检测而不是静默跳过", async () => {
+  const result = await runScenario({
+    cache: { "weibo.followwatch.last_scan_at": String(Date.now()) },
+    argument: "mode=smart&max_pages=2&cache_hours=12&min_interval=45&debug=false&jitter_ms=0&show_zero=true",
+  });
+  assert.equal(result.requests.length, 0);
+  assert.equal(result.body.userInfo.description, "原简介\n🆔 UID:10001 · ⏳ 待检测");
+});
+
 test("请求失败时保持原简介，不伪造零命中", async () => {
   const error = { status: 500, body: "{}" };
   const result = await runScenario({ routes: { [`${military}|1`]: error, [`${society}|1`]: error } });
