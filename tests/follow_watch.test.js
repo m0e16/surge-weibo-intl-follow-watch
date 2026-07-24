@@ -114,7 +114,8 @@ test("分类存在时顺序扫描军事和社会时事并按 UID 命中", async 
       [`${society}|1`]: { body: JSON.stringify(cardlist([["30001", "普通用户"]], 1, "他喜欢的社会时事博主")) },
     },
   });
-  assert.match(result.body.userInfo.description, /🆔 UID:10001\n⚠️ 黑名单命中1：黑名单甲/);
+  assert.match(result.body.userInfo.description, /🆔 UID:10001 · ⚠️ 命中1：黑名单甲/);
+  assert.doesNotMatch(result.body.userInfo.description, /UID:10001\n⚠️/);
   assert.equal(result.requests.length, 2);
   assert.deepEqual(result.requests.map((x) => new URL(x.url).searchParams.get("containerid")).sort(), [military, society].sort());
 });
@@ -128,7 +129,7 @@ test("没有分类时 smart 模式回退扫描普通关注列表", async () => {
       [`${all}|2`]: { body: JSON.stringify(cardlist([["20002", "黑名单乙"]], 40)) },
     },
   });
-  assert.match(result.body.userInfo.description, /⚠️ 黑名单命中1：黑名单乙/);
+  assert.match(result.body.userInfo.description, /⚠️ 命中1：黑名单乙/);
   assert.equal(result.requests.length, 4);
 });
 
@@ -141,7 +142,7 @@ test("有分类但分类未命中时 smart 模式仍扫描普通关注列表", a
       [`${all}|1`]: { body: JSON.stringify(cardlist([["20002", "黑名单乙当前昵称"]], 40)) },
     },
   });
-  assert.match(result.body.userInfo.description, /黑名单命中1：黑名单乙当前昵称/);
+  assert.match(result.body.userInfo.description, /命中1：黑名单乙当前昵称/);
   assert.equal(result.requests.length, 3);
 });
 
@@ -151,6 +152,14 @@ test("未命中且关闭 show_zero 时仍在简介显示主页 UID", async () =>
     argument: "mode=category&max_pages=2&cache_hours=12&debug=false&jitter_ms=0&show_zero=false",
   });
   assert.equal(result.body.userInfo.description, "原简介\n🆔 UID:10001");
+});
+
+test("开启 show_zero 时 UID 与未命中状态显示在同一行", async () => {
+  const result = await runScenario({
+    blacklist: "20001",
+    argument: "mode=category&max_pages=2&cache_hours=12&debug=false&jitter_ms=0&show_zero=true",
+  });
+  assert.equal(result.body.userInfo.description, "原简介\n🆔 UID:10001 · ⚠️ 未命中");
 });
 
 test("已拉黑用户只显示 UID 且不发检测请求", async () => {
@@ -184,7 +193,7 @@ test("解除拉黑后的主页不使用拉黑状态缓存并重新检测", async
     },
   });
   assert.ok(result.requests.length >= 2);
-  assert.match(result.body.userInfo.description, /黑名单命中1：当前昵称/);
+  assert.match(result.body.userInfo.description, /命中1：当前昵称/);
 });
 
 test("命中展示关注接口返回的当前昵称而不是 BoxJS 旧昵称", async () => {
@@ -195,7 +204,7 @@ test("命中展示关注接口返回的当前昵称而不是 BoxJS 旧昵称", a
       [`${society}|1`]: { body: JSON.stringify(cardlist([])) },
     },
   });
-  assert.match(result.body.userInfo.description, /黑名单命中1：当前昵称/);
+  assert.match(result.body.userInfo.description, /命中1：当前昵称/);
   assert.doesNotMatch(result.body.userInfo.description, /旧昵称/);
 });
 

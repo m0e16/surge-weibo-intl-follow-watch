@@ -10,7 +10,7 @@ const STORE = {
   cachePrefix: "weibo.followwatch.cache.",
 };
 const RESULT_MARKER_RE = /\n?⚠️ 黑名单(?:命中\d+(?:：[^\n]*)?|未命中)(?: \[[^\n]*\])?/g;
-const UID_MARKER_RE = /\n?(?:（🆔UID：\d+）|🆔 UID:\d+)/g;
+const UID_MARKER_RE = /\n?(?:（🆔UID：\d+）|🆔 UID:\d+(?: · ⚠️ (?:命中\d+(?:：[^\n]*)?|未命中))?)/g;
 const CATEGORY_CODES = ["007", "060"]; // 军事、社会时事
 const DEFAULTS = {
   mode: "smart", // category | smart | full
@@ -254,17 +254,21 @@ function collectMatches(users, blacklist, found) {
 
 function applyResult(profile, result) {
   const user = profile.userInfo;
-  const original = String(user.description || "").replace(RESULT_MARKER_RE, "").trimEnd();
+  const text = String(user.description || "")
+    .replace(RESULT_MARKER_RE, "")
+    .replace(UID_MARKER_RE, "")
+    .trimEnd();
+  const uid = String(user.idstr || user.id || "");
   if (!result.count && !config.show_zero) {
-    user.description = original;
+    user.description = appendLine(text, "🆔 UID:" + uid);
     return;
   }
-  let label = result.count ? `⚠️ 黑名单命中${result.count}` : "⚠️ 黑名单未命中";
+  let status = result.count ? `⚠️ 命中${result.count}` : "⚠️ 未命中";
   if (result.count && config.show_names && config.max_names > 0) {
     const names = (result.names || []).slice(0, config.max_names);
-    if (names.length) label += "：" + names.join("、") + ((result.names || []).length > names.length ? "等" : "");
+    if (names.length) status += "：" + names.join("、") + ((result.names || []).length > names.length ? "等" : "");
   }
-  user.description = original ? original + "\n" + label : label;
+  user.description = appendLine(text, "🆔 UID:" + uid + " · " + status);
 }
 
 function applyUid(profile, uid) {
@@ -274,8 +278,10 @@ function applyUid(profile, uid) {
     .replace(UID_MARKER_RE, "")
     .trimEnd();
   const marker = "🆔 UID:" + uid;
-  user.description = original ? original + "\n" + marker : marker;
+  user.description = appendLine(original, marker);
 }
+
+function appendLine(text, line) { return text ? text + "\n" + line : line; }
 
 function getProfileState(user) {
   // HAR 实测：block=1 为已拉黑，block=2 为未拉黑；following=true 为我已关注。
