@@ -2,7 +2,7 @@
   "id": "weibo.followwatch.sub",
   "name": "微博关注黑名单检测",
   "author": "@m0e16",
-  "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/Weibo.png",
+  "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
   "repo": "https://github.com/m0e16/surge-weibo-intl-follow-watch",
   "apps": [
     {
@@ -28,8 +28,8 @@
       "repo": "https://github.com/m0e16/surge-weibo-intl-follow-watch",
       "script": "https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/scripts/boxjs_normalize.js",
       "icons": [
-        "https://raw.githubusercontent.com/Orz-3/mini/master/Alpha/Weibo.png",
-        "https://raw.githubusercontent.com/Orz-3/mini/master/Color/Weibo.png"
+        "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Weibo.png",
+        "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png"
       ],
       "scripts": [
         {
