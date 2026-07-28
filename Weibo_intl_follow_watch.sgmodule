@@ -1,5 +1,5 @@
-#!name=微博关注黑名单检测
-#!desc=在微博国际版用户简介显示 UID；对未拉黑且未关注的用户低频检测关注黑名单。
+#!name=关注列表定律检测器
+#!desc=⚠️验证关注列表定律的时候到了！
 #!author=m0e16
 #!category=🔧 Tools
 #!arguments=mode:smart,max_pages:5,cache_hours:24,min_interval:45,jitter_ms:900,show_names:true,max_names:3,show_zero:false,debug:false
