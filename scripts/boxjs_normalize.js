@@ -7,20 +7,30 @@ notify("关注黑名单检测", "黑名单校验完成", `有效 ${result.valid}
 $done();
 
 function normalize(value) {
-  const lines = String(value).split(/\r?\n|;/).map((x) => x.trim()).filter(Boolean);
-  const seen = new Set();
+  const lines = String(value).split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  const seen = new Map();
   const output = [];
   let invalid = 0;
   let duplicate = 0;
   for (const line of lines) {
-    const parts = line.split(/[,，\t|]/);
-    const uid = String(parts.shift() || "").trim();
+    const match = line.match(/^([^;；,，\t|]+)(?:[;；,，\t|](.*))?$/);
+    const uid = String((match && match[1]) || "").trim();
     if (!/^\d{5,20}$/.test(uid)) { invalid++; continue; }
-    if (seen.has(uid)) { duplicate++; continue; }
-    seen.add(uid);
-    output.push(uid);
+    const name = cleanName((match && match[2]) || "");
+    if (seen.has(uid)) {
+      duplicate++;
+      const index = seen.get(uid);
+      if (name && !output[index].name) output[index].name = name;
+      continue;
+    }
+    seen.set(uid, output.length);
+    output.push({ uid, name });
   }
-  return { text: output.join("\n"), valid: output.length, invalid, duplicate };
+  const text = output.map((item) => item.uid + (item.name ? ";" + item.name : "")).join("\n");
+  return { text, valid: output.length, invalid, duplicate };
+}
+function cleanName(value) {
+  return String(value || "").replace(/[\r\n;；]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function notify(title, subtitle, body) {
   try { $notification.post(title, subtitle, body); } catch (_) {}

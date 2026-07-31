@@ -1,7 +1,7 @@
 /*
  * 微博国际版 / 轻享版：关注黑名单检测
  * 拦截 /2/profile，低频查询目标用户的军事、社会时事分类；没有分类时按配置回退普通关注列表。
- * 黑名单由 BoxJS 写入 weibo.followwatch.blacklist，每行一个 UID；命中昵称取接口当前值。
+ * 黑名单由 BoxJS 写入 weibo.followwatch.blacklist，每行 UID 或 UID;昵称；匹配始终只使用 UID。
  */
 
 const STORE = {
@@ -123,6 +123,7 @@ async function main() {
   // 两个分类都失败时不写“零命中”，避免网络异常导致误判。
   if (!successfulRequests) return $done({ body: JSON.stringify(profile) });
 
+  updateBlacklistNames(found);
   const names = Array.from(found.values()).map((x) => x.name);
   const result = {
     expires_at: Date.now() + config.cache_hours * 3600 * 1000,
@@ -171,24 +172,49 @@ function parseBlacklist(raw) {
   if (text.charAt(0) === "[") {
     try { source = JSON.parse(text); } catch (_) { source = []; }
   } else {
-    source = text.split(/\r?\n|;/).filter(Boolean);
+    source = text.split(/\r?\n/).filter(Boolean);
   }
   const byUid = new Map();
   for (const entry of source) {
     let uid = "";
+    let name = "";
     if (typeof entry === "string") {
-      const parts = entry.split(/[,，\t|]/);
-      uid = String(parts.shift() || "").trim();
+      const match = entry.match(/^([^;；,，\t|]+)(?:[;；,，\t|](.*))?$/);
+      uid = String((match && match[1]) || "").trim();
+      name = cleanBlacklistName((match && match[2]) || "");
     } else if (entry && typeof entry === "object") {
       uid = String(entry.uid || entry.id || entry.idstr || "").trim();
+      name = cleanBlacklistName(entry.name || entry.screen_name || "");
     }
     if (!/^\d{5,20}$/.test(uid)) continue;
-    byUid.set(uid, { uid });
+    if (!byUid.has(uid)) byUid.set(uid, { uid, name });
   }
-  const items = Array.from(byUid.values()).sort((a, b) => a.uid.localeCompare(b.uid));
-  // 版本值不含认证信息；兼容旧缓存测试时保留规范化文本形式。
-  const version = items.map((x) => x.uid).join("\n");
+  const items = Array.from(byUid.values());
+  // 昵称不参与匹配和缓存版本；账号改名不会制造无意义的重新扫描。
+  const version = items.map((x) => x.uid).sort().join("\n");
   return { items, byUid, version };
+}
+
+function updateBlacklistNames(found) {
+  // 扫描期间用户可能在 BoxJS 修改名单；写回前重读，避免用旧快照覆盖新内容。
+  const parsed = parseBlacklist($persistentStore.read(STORE.blacklist) || "");
+  let changed = false;
+  for (const item of parsed.items) {
+    const match = found.get(item.uid);
+    if (!match) continue;
+    const currentName = cleanBlacklistName(match.name === item.uid ? "" : match.name);
+    if (currentName && currentName !== item.name) {
+      item.name = currentName;
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  const text = parsed.items.map((item) => item.uid + (item.name ? ";" + item.name : "")).join("\n");
+  $persistentStore.write(text, STORE.blacklist);
+}
+
+function cleanBlacklistName(value) {
+  return String(value || "").replace(/[\r\n;；]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function buildBaseCardlistUrl(profileUrl) {

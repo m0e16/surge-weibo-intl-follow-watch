@@ -208,6 +208,36 @@ test("命中展示关注接口返回的当前昵称而不是 BoxJS 旧昵称", a
   assert.doesNotMatch(result.body.userInfo.description, /旧昵称/);
 });
 
+test("扫描命中后把当前昵称被动补全到 BoxJS 名单", async () => {
+  const result = await runScenario({
+    blacklist: "20001\n20002;已有昵称",
+    routes: {
+      [`${military}|1`]: { body: JSON.stringify(cardlist([["20001", "新识别昵称"]])) },
+      [`${society}|1`]: { body: JSON.stringify(cardlist([])) },
+    },
+  });
+  assert.equal(
+    result.writes["weibo.followwatch.blacklist"],
+    "20001;新识别昵称\n20002;已有昵称",
+  );
+});
+
+test("扫描再次命中时用接口当前昵称更新 BoxJS 旧昵称", async () => {
+  const result = await runScenario({
+    blacklist: "20001;旧昵称",
+    routes: {
+      [`${military}|1`]: { body: JSON.stringify(cardlist([["20001", "当前昵称"]])) },
+      [`${society}|1`]: { body: JSON.stringify(cardlist([])) },
+    },
+  });
+  assert.equal(result.writes["weibo.followwatch.blacklist"], "20001;当前昵称");
+});
+
+test("未命中时不改写 BoxJS 名单", async () => {
+  const result = await runScenario({ blacklist: "20001;已有昵称" });
+  assert.equal(Object.prototype.hasOwnProperty.call(result.writes, "weibo.followwatch.blacklist"), false);
+});
+
 test("安全策略限制请求数量并使用顺序分页而不是突发并发", async () => {
   const result = await runScenario({
     argument: "mode=full&max_pages=2&cache_hours=12&debug=false&jitter_ms=0",

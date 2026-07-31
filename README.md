@@ -32,14 +32,14 @@ https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/Weibo
 weibo.followwatch.blacklist
 ```
 
-匹配只使用 UID。BoxJS 中每行填写一个 UID，例如：
+匹配始终只使用 UID。BoxJS 中每行填写 `UID` 或 `UID;昵称`，例如：
 
 ```text
-1234567890
+1234567890;测试昵称
 2345678901
 ```
 
-命中后的昵称来自关注列表接口的当前 `screen_name`，无需在 BoxJS 维护。
+正常扫描实际命中某个 UID 后，脚本会把关注列表接口返回的当前 `screen_name` 被动补全到名单；已有旧昵称也会更新。没有在扫描中遇到的 UID 保持原样，不会为补昵称增加额外微博请求。运行“校验并规范化名单”可兼容旧逗号格式、去重，并统一整理为 `UID;昵称`。
 
 BoxJS 订阅：
 
