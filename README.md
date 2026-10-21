@@ -73,6 +73,12 @@ https://raw.githubusercontent.com/m0e16/surge-weibo-intl-follow-watch/main/boxjs
 - 初次检测会给主页加载增加约数秒延迟，后续缓存命中会立即返回。
 - 只有真机 Surge + 微博 App 能最终验证简介布局、接口风控和认证参数复用。
 
+## 接口兼容性
+
+微博国际版 7.2.1（`WeiboOverseas/7.2.1`）起，用户主页头部数据从 `GET /2/profile` 改为 `GET /2/profile/userinfo`，且 `userInfo` 从 `body.userInfo` 移到 `body.header.data.userInfo`。脚本同时匹配两个接口并兼容两种结构，旧版本回退时仍然有效。
+
+`/2/cardlist`（关注分类与普通关注列表）未受影响。
+
 ## 本地测试
 
 ```bash

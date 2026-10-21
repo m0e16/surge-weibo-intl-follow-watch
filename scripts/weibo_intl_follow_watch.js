@@ -40,9 +40,10 @@ async function main() {
   } catch (_) {
     return $done({});
   }
-  const user = profile && profile.userInfo;
-  const uid = String((user && (user.idstr || user.id)) || "");
-  if (!uid || !user) return $done({});
+  const user = locateUserInfo(profile);
+  if (!user) return $done({});
+  const uid = String(user.idstr || user.id || "");
+  if (!uid) return $done({});
 
   const profileState = getProfileState(user);
   const cacheKey = STORE.cachePrefix + uid;
@@ -53,7 +54,7 @@ async function main() {
     return $done({ body: JSON.stringify(profile) });
   }
 
-  applyUid(profile, uid);
+  applyUid(user, uid);
   if (profileState === "following") {
     // 不缓存跳过状态；取消关注后下一次进入会自然重新检测。
     $persistentStore.write("", cacheKey);
@@ -74,7 +75,7 @@ async function main() {
     cached.blacklist_version === parsedBlacklist.version &&
     (!cached.profile_state || cached.profile_state === profileState)
   ) {
-    applyResult(profile, cached);
+    applyResult(user, cached);
     return $done({ body: JSON.stringify(profile) });
   }
 
@@ -82,7 +83,7 @@ async function main() {
   const lastScanAt = Number($persistentStore.read(STORE.lastScanAt) || 0);
   if (config.min_interval > 0 && Date.now() - lastScanAt < config.min_interval * 1000) {
     log("global cooldown, skip uid=" + uid);
-    applyPending(profile);
+    applyPending(user);
     return $done({ body: JSON.stringify(profile) });
   }
   $persistentStore.write(String(Date.now()), STORE.lastScanAt);
@@ -135,7 +136,7 @@ async function main() {
   };
   $persistentStore.write(JSON.stringify(result), cacheKey);
   rememberCacheKey(cacheKey);
-  applyResult(profile, result);
+  applyResult(user, result);
   log(`uid=${uid} scope=${result.scope} matches=${result.count}`);
   $done({ body: JSON.stringify(profile) });
 }
@@ -219,7 +220,7 @@ function cleanBlacklistName(value) {
 
 function buildBaseCardlistUrl(profileUrl) {
   const query = parseQuery(profileUrl);
-  const allowed = ["aid", "c", "from", "gsid", "lang", "s", "ua", "v_p"];
+  const allowed = ["aid", "c", "from", "gsid", "lang", "s", "ua", "v_p", "dlang", "featurecode", "wm", "networktype"];
   const params = {};
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(query, key)) params[key] = query[key];
@@ -234,7 +235,6 @@ function fetchCardlist(base, container, page) {
     containerid: container,
     page: String(page),
   });
-  if (page > 1) params.since_id = "(null)";
   const url = base.origin + "?" + Object.keys(params)
     .map((key) => encodeURIComponent(key) + "=" + encodeURIComponent(params[key]))
     .join("&");
@@ -249,6 +249,10 @@ function fetchCardlist(base, container, page) {
       if (error || status < 200 || status >= 300) return resolve({ ok: false, users: [] });
       try {
         const obj = typeof body === "string" ? JSON.parse(body) : body;
+        if (!obj || typeof obj !== "object") return resolve({ ok: false, users: [] });
+        // 微博在风控/参数异常时仍返回 HTTP 200，必须校验业务结构，避免把空结果当成"扫描成功"缓存 24 小时。
+        if (obj.error_code || obj.error) return resolve({ ok: false, users: [] });
+        if (!Array.isArray(obj.cards) && !obj.cardlistInfo) return resolve({ ok: false, users: [] });
         resolve({ ok: true, users: extractUsers(obj) });
       } catch (_) {
         resolve({ ok: false, users: [] });
@@ -284,8 +288,21 @@ function collectMatches(users, blacklist, found) {
   }
 }
 
-function applyResult(profile, result) {
-  const user = profile.userInfo;
+function locateUserInfo(profile) {
+  if (!profile || typeof profile !== "object") return null;
+  // 旧接口 /2/profile：{ userInfo }；新接口 /2/profile/userinfo：{ header: { data: { userInfo } } }
+  const candidates = [
+    profile.userInfo,
+    profile.header && profile.header.data && profile.header.data.userInfo,
+    profile.data && profile.data.userInfo,
+  ];
+  for (const user of candidates) {
+    if (user && typeof user === "object" && (user.idstr || user.id)) return user;
+  }
+  return null;
+}
+
+function applyResult(user, result) {
   const text = String(user.description || "")
     .replace(RESULT_MARKER_RE, "")
     .replace(UID_MARKER_RE, "")
@@ -303,8 +320,7 @@ function applyResult(profile, result) {
   user.description = appendLine(text, "🆔 UID:" + uid + " · " + status);
 }
 
-function applyUid(profile, uid) {
-  const user = profile.userInfo;
+function applyUid(user, uid) {
   const original = String(user.description || "")
     .replace(RESULT_MARKER_RE, "")
     .replace(UID_MARKER_RE, "")
@@ -313,8 +329,7 @@ function applyUid(profile, uid) {
   user.description = appendLine(original, marker);
 }
 
-function applyPending(profile) {
-  const user = profile.userInfo;
+function applyPending(user) {
   const text = String(user.description || "").replace(UID_MARKER_RE, "").trimEnd();
   const uid = String(user.idstr || user.id || "");
   user.description = appendLine(text, "🆔 UID:" + uid + " · ⏳ 待检测");
